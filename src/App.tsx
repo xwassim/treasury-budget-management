@@ -4,6 +4,7 @@ import { useBudget } from './context/BudgetContext';
 import BudgetForm from './components/BudgetForm';
 import BudgetList from './components/BudgetList';
 import BudgetDetail from './components/BudgetDetail';
+import logo from './assets/Budgetproo.png';
 
 function App() {
   const { currentBudget, setCurrentBudget, getBudget } = useBudget();
@@ -29,8 +30,9 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-blue-800 shadow-md">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-white">Budget de Trésorerie Prévisionnel</h1>
+          <img src={logo} alt="Logo" className="h-[60px] w-[70px] float-right" />
         </div>
       </header>
       

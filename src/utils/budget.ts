@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Budget, BudgetFormData, BudgetSummary, Income, Expense, VATCollected, VATDeductible, VATSummary } from '../types';
+import { getAvailableMonths } from './dates';
 
 export const createNewBudget = (formData: BudgetFormData): Budget => {
   const { name, startMonth, months, year, initialTreasury, initialVATCredit } = formData;
@@ -59,11 +60,11 @@ export const addVATCollected = (budget: Budget, description: string): Budget => 
     amounts: {}
   };
   
-  // Initialize amounts for each month
-  for (let i = 0; i < budget.period.months; i++) {
-    const month = (budget.period.startMonth + i - 1) % 12 + 1;
+  // Initialize amounts for each month in the budget period
+  const months = getAvailableMonths(budget.period.startMonth, budget.period.months);
+  months.forEach(month => {
     newItem.amounts[month] = 0;
-  }
+  });
   
   return {
     ...budget,
@@ -80,10 +81,10 @@ export const addVATDeductible = (budget: Budget, description: string): Budget =>
   };
   
   // Initialize amounts for each month
-  for (let i = 0; i < budget.period.months; i++) {
-    const month = (budget.period.startMonth + i - 1) % 12 + 1;
+  const months = getAvailableMonths(budget.period.startMonth, budget.period.months);
+  months.forEach(month => {
     newItem.amounts[month] = 0;
-  }
+  });
   
   return {
     ...budget,
@@ -291,8 +292,9 @@ export const calculateVATSummary = (budget: Budget): Budget => {
     let previousMonthCredit = 0;
     if (i > 0) {
       const prevMonth = (startMonth + i - 2) % 12 + 1;
-      const prevMonthSummary = vatSummary[prevMonth];
-      previousMonthCredit = prevMonthSummary.isCredit ? -prevMonthSummary.toPay : 0;
+      previousMonthCredit = budget.vatSummary[prevMonth]?.isCredit 
+        ? -budget.vatSummary[prevMonth].toPay 
+        : 0;
     } else {
       // For the first month, use the initial VAT credit from the budget
       previousMonthCredit = budget.vatSummary[month]?.previousMonthCredit || 0;
@@ -319,15 +321,14 @@ export const calculateVATSummary = (budget: Budget): Budget => {
 
 export const calculateBudgetSummary = (budget: Budget): Budget => {
   const { incomes, expenses, period, initialTreasury, vatSummary } = budget;
-  const { startMonth, months } = period;
+  const { startMonth, months: monthsCount } = period;
   
   const summary: Record<number, BudgetSummary> = {};
+  const months = getAvailableMonths(startMonth, monthsCount);
   
   let runningBalance = initialTreasury;
   
-  for (let i = 0; i < months; i++) {
-    const month = (startMonth + i - 1) % 12 + 1;
-    
+  months.forEach(month => {
     // Calculate total income for this month
     const totalIncome = incomes.reduce((sum, item) => {
       return sum + (item.amounts[month] || 0);
@@ -341,7 +342,6 @@ export const calculateBudgetSummary = (budget: Budget): Budget => {
     // Add VAT payment or credit to expenses or income
     const vatAmount = vatSummary[month]?.toPay || 0;
     let adjustedTotalExpenses = totalExpenses;
-    let adjustedTotalIncome = totalIncome;
     
     if (vatAmount > 0) {
       // VAT to pay: add to expenses
@@ -349,7 +349,7 @@ export const calculateBudgetSummary = (budget: Budget): Budget => {
     }
     
     // Calculate monthly cash flow
-    const monthlyCashFlow = adjustedTotalIncome - adjustedTotalExpenses;
+    const monthlyCashFlow = totalIncome - adjustedTotalExpenses;
     
     // Update running balance
     const initialBalance = runningBalance;
@@ -357,12 +357,12 @@ export const calculateBudgetSummary = (budget: Budget): Budget => {
     
     summary[month] = {
       initialBalance,
-      totalIncome: adjustedTotalIncome,
+      totalIncome,
       totalExpenses: adjustedTotalExpenses,
       monthlyCashFlow,
       finalBalance: runningBalance
     };
-  }
+  });
   
   return {
     ...budget,

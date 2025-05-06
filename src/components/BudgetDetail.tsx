@@ -110,8 +110,11 @@ const BudgetDetail: React.FC<BudgetDetailProps> = ({ budget, onBack }) => {
         </div>
 
         <VATTable budget={budget} />
+      </div>
+      <div className="pdf-section">
         <CashFlowTables budget={budget} />
       </div>
+
       <div className="pdf-section">
         <SummaryTable budget={budget} />
         <CashFlowChart budget={budget} />

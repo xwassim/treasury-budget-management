@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Budget, BudgetFormData } from '../types';
 import {
   createNewBudget,
@@ -57,39 +57,41 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setBudgets(storedBudgets);
   }, []);
 
-  const createBudget = (formData: BudgetFormData): Budget => {
-    const newBudget = createNewBudget(formData);
-    const calculatedBudget = recalculateBudget(newBudget);
-    
-    setBudgets(prev => [...prev, calculatedBudget]);
-    setCurrentBudget(calculatedBudget);
-    saveBudget(calculatedBudget);
-    
-    return calculatedBudget;
-  };
-
-  const getBudget = (id: string): Budget | null => {
-    return getBudgetById(id);
-  };
-
-  const updateBudget = (budget: Budget): void => {
-    const updatedBudget = {
-      ...budget,
+  const updateAndSaveBudget = useCallback((updatedBudget: Budget) => {
+    const calculatedBudget = recalculateBudget(updatedBudget);
+    const budgetWithTimestamp = {
+      ...calculatedBudget,
       updatedAt: new Date().toISOString()
     };
-    
+
     setBudgets(prev => 
-      prev.map(b => b.id === updatedBudget.id ? updatedBudget : b)
+      prev.map(b => b.id === budgetWithTimestamp.id ? budgetWithTimestamp : b)
     );
     
-    if (currentBudget?.id === updatedBudget.id) {
-      setCurrentBudget(updatedBudget);
+    if (currentBudget?.id === budgetWithTimestamp.id) {
+      setCurrentBudget(budgetWithTimestamp);
     }
     
-    saveBudget(updatedBudget);
-  };
+    saveBudget(budgetWithTimestamp);
+    return budgetWithTimestamp;
+  }, [currentBudget?.id]);
 
-  const removeBudget = (id: string): void => {
+  const createBudget = useCallback((formData: BudgetFormData): Budget => {
+    const newBudget = createNewBudget(formData);
+    const calculatedBudget = updateAndSaveBudget(newBudget);
+    setCurrentBudget(calculatedBudget);
+    return calculatedBudget;
+  }, [updateAndSaveBudget]);
+
+  const getBudget = useCallback((id: string): Budget | null => {
+    return getBudgetById(id);
+  }, []);
+
+  const updateBudget = useCallback((budget: Budget): void => {
+    updateAndSaveBudget(budget);
+  }, [updateAndSaveBudget]);
+
+  const removeBudget = useCallback((id: string): void => {
     setBudgets(prev => prev.filter(b => b.id !== id));
     
     if (currentBudget?.id === id) {
@@ -97,133 +99,85 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
     
     deleteBudget(id);
-  };
+  }, [currentBudget?.id]);
+
+  // Common operation handler
+  const handleBudgetOperation = useCallback(
+    (operation: (budget: Budget, ...args: any[]) => Budget, 
+    ...args: any[]
+  ) => {
+    if (!currentBudget) return;
+    const updatedBudget = operation(currentBudget, ...args);
+    updateAndSaveBudget(updatedBudget);
+  },
+  [currentBudget, updateAndSaveBudget]
+  );
 
   // VAT Collected operations
-  const addVATCollectedItem = (description: string): void => {
-    if (!currentBudget) return;
-    
-    const updatedBudget = addVATCollected(currentBudget, description);
-    const calculatedBudget = recalculateBudget(updatedBudget);
-    
-    setCurrentBudget(calculatedBudget);
-    updateBudget(calculatedBudget);
-  };
+  const addVATCollectedItem = useCallback((description: string): void => {
+    handleBudgetOperation(addVATCollected, description);
+  }, [handleBudgetOperation]);
 
   // VAT Deductible operations
-  const addVATDeductibleItem = (description: string): void => {
-    if (!currentBudget) return;
-    
-    const updatedBudget = addVATDeductible(currentBudget, description);
-    const calculatedBudget = recalculateBudget(updatedBudget);
-    
-    setCurrentBudget(calculatedBudget);
-    updateBudget(calculatedBudget);
-  };
+  const addVATDeductibleItem = useCallback((description: string): void => {
+    handleBudgetOperation(addVATDeductible, description);
+  }, [handleBudgetOperation]);
 
   // Income operations
-  const addIncomeItem = (description: string): void => {
-    if (!currentBudget) return;
-    
-    const updatedBudget = addIncome(currentBudget, description);
-    const calculatedBudget = recalculateBudget(updatedBudget);
-    
-    setCurrentBudget(calculatedBudget);
-    updateBudget(calculatedBudget);
-  };
+  const addIncomeItem = useCallback((description: string): void => {
+    handleBudgetOperation(addIncome, description);
+  }, [handleBudgetOperation]);
 
   // Expense operations
-  const addExpenseItem = (description: string): void => {
-    if (!currentBudget) return;
-    
-    const updatedBudget = addExpense(currentBudget, description);
-    const calculatedBudget = recalculateBudget(updatedBudget);
-    
-    setCurrentBudget(calculatedBudget);
-    updateBudget(calculatedBudget);
-  };
+  const addExpenseItem = useCallback((description: string): void => {
+    handleBudgetOperation(addExpense, description);
+  }, [handleBudgetOperation]);
 
   // Update operations
-  const updateVATCollectedValue = (id: string, month: number, amount: number): void => {
-    if (!currentBudget) return;
-    
-    const updatedBudget = updateVATCollectedAmount(currentBudget, id, month, amount);
-    const calculatedBudget = recalculateBudget(updatedBudget);
-    
-    setCurrentBudget(calculatedBudget);
-    updateBudget(calculatedBudget);
-  };
+  const updateVATCollectedValue = useCallback(
+    (id: string, month: number, amount: number): void => {
+      handleBudgetOperation(updateVATCollectedAmount, id, month, amount);
+    },
+    [handleBudgetOperation]
+  );
 
-  const updateVATDeductibleValue = (id: string, month: number, amount: number): void => {
-    if (!currentBudget) return;
-    
-    const updatedBudget = updateVATDeductibleAmount(currentBudget, id, month, amount);
-    const calculatedBudget = recalculateBudget(updatedBudget);
-    
-    setCurrentBudget(calculatedBudget);
-    updateBudget(calculatedBudget);
-  };
+  const updateVATDeductibleValue = useCallback(
+    (id: string, month: number, amount: number): void => {
+      handleBudgetOperation(updateVATDeductibleAmount, id, month, amount);
+    },
+    [handleBudgetOperation]
+  );
 
-  const updateIncomeValue = (id: string, month: number, amount: number): void => {
-    if (!currentBudget) return;
-    
-    const updatedBudget = updateIncomeAmount(currentBudget, id, month, amount);
-    const calculatedBudget = recalculateBudget(updatedBudget);
-    
-    setCurrentBudget(calculatedBudget);
-    updateBudget(calculatedBudget);
-  };
+  const updateIncomeValue = useCallback(
+    (id: string, month: number, amount: number): void => {
+      handleBudgetOperation(updateIncomeAmount, id, month, amount);
+    },
+    [handleBudgetOperation]
+  );
 
-  const updateExpenseValue = (id: string, month: number, amount: number): void => {
-    if (!currentBudget) return;
-    
-    const updatedBudget = updateExpenseAmount(currentBudget, id, month, amount);
-    const calculatedBudget = recalculateBudget(updatedBudget);
-    
-    setCurrentBudget(calculatedBudget);
-    updateBudget(calculatedBudget);
-  };
+  const updateExpenseValue = useCallback(
+    (id: string, month: number, amount: number): void => {
+      handleBudgetOperation(updateExpenseAmount, id, month, amount);
+    },
+    [handleBudgetOperation]
+  );
 
   // Remove operations
-  const removeVATCollectedItem = (id: string): void => {
-    if (!currentBudget) return;
-    
-    const updatedBudget = removeVATCollected(currentBudget, id);
-    const calculatedBudget = recalculateBudget(updatedBudget);
-    
-    setCurrentBudget(calculatedBudget);
-    updateBudget(calculatedBudget);
-  };
+  const removeVATCollectedItem = useCallback((id: string): void => {
+    handleBudgetOperation(removeVATCollected, id);
+  }, [handleBudgetOperation]);
 
-  const removeVATDeductibleItem = (id: string): void => {
-    if (!currentBudget) return;
-    
-    const updatedBudget = removeVATDeductible(currentBudget, id);
-    const calculatedBudget = recalculateBudget(updatedBudget);
-    
-    setCurrentBudget(calculatedBudget);
-    updateBudget(calculatedBudget);
-  };
+  const removeVATDeductibleItem = useCallback((id: string): void => {
+    handleBudgetOperation(removeVATDeductible, id);
+  }, [handleBudgetOperation]);
 
-  const removeIncomeItem = (id: string): void => {
-    if (!currentBudget) return;
-    
-    const updatedBudget = removeIncome(currentBudget, id);
-    const calculatedBudget = recalculateBudget(updatedBudget);
-    
-    setCurrentBudget(calculatedBudget);
-    updateBudget(calculatedBudget);
-  };
+  const removeIncomeItem = useCallback((id: string): void => {
+    handleBudgetOperation(removeIncome, id);
+  }, [handleBudgetOperation]);
 
-  const removeExpenseItem = (id: string): void => {
-    if (!currentBudget) return;
-    
-    const updatedBudget = removeExpense(currentBudget, id);
-    const calculatedBudget = recalculateBudget(updatedBudget);
-    
-    setCurrentBudget(calculatedBudget);
-    updateBudget(calculatedBudget);
-  };
+  const removeExpenseItem = useCallback((id: string): void => {
+    handleBudgetOperation(removeExpense, id);
+  }, [handleBudgetOperation]);
 
   return (
     <BudgetContext.Provider
