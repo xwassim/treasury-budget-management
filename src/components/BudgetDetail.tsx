@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { exportToPDF, exportToExcel } from "../utils/export";
+import ForecastTable from "./ForecastTable";
 
 interface BudgetDetailProps {
   budget: Budget;
@@ -109,6 +110,7 @@ const BudgetDetail: React.FC<BudgetDetailProps> = ({ budget, onBack }) => {
           </div>
         </div>
 
+        <ForecastTable budget={budget} />        
         <VATTable budget={budget} />
       </div>
       <div className="pdf-section">

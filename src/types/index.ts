@@ -60,6 +60,7 @@ export type Budget = {
   incomes: Income[];
   expenses: Expense[];
   summary: Record<number, BudgetSummary>;
+  forecasts: ForecastItem[];
 };
 
 export type BudgetFormData = {
@@ -69,4 +70,16 @@ export type BudgetFormData = {
   year: number;
   initialTreasury: number;
   initialVATCredit: number;
+};
+
+// Make amounts required and not undefined
+export type ForecastItem = {
+  id: string;
+  type: 'sales' | 'purchases' | 'investments';
+  vatRates: Record<number, number>;
+  amounts: Record<number, {
+    ht: number;
+    vat: number;
+    ttc: number;
+  }>; // Removed the | undefined
 };

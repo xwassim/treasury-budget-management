@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { formatCurrency, parseFormattedCurrency } from '../utils/formatters';
+
 
 interface EditableCellProps {
   value: number;
@@ -51,7 +51,7 @@ const EditableCell: React.FC<EditableCellProps> = ({ value, onChange }) => {
           onClick={() => setIsEditing(true)}
           className="w-full p-1 text-center hover:bg-gray-100 cursor-pointer rounded transition-colors duration-150"
         >
-          {formatCurrency(value)}
+          {value}
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Budget, BudgetFormData, BudgetSummary, Income, Expense, VATCollected, VATDeductible, VATSummary } from '../types';
+import { Budget, BudgetFormData, BudgetSummary, Income, Expense, VATCollected, VATDeductible, VATSummary, ForecastItem } from '../types';
 import { getAvailableMonths } from './dates';
 
 export const createNewBudget = (formData: BudgetFormData): Budget => {
@@ -48,9 +48,52 @@ export const createNewBudget = (formData: BudgetFormData): Budget => {
     vatDeductible: [],
     vatSummary,
     incomes: [],
+    forecasts: [
+      {
+        id: 'sales',
+        type: 'sales',
+        vatRates: {},
+        amounts: {}
+      },
+      {
+        id: 'purchases',
+        type: 'purchases',
+        vatRates: {},
+        amounts: {}
+      },
+      {
+        id: 'investments',
+        type: 'investments',
+        vatRates: {},
+        amounts: {}
+      }
+    ],
     expenses: [],
     summary
   };
+};
+
+// Add this new utility function to initialize month data
+export const initializeForecastMonth = (forecasts: ForecastItem[], months: number[]) => {
+  return forecasts.map(forecast => {
+    const newAmounts = {...forecast.amounts};
+    const newVatRates = {...forecast.vatRates};
+    
+    months.forEach(month => {
+      if (!newAmounts[month]) {
+        newAmounts[month] = { ht: 0, vat: 0, ttc: 0 };
+      }
+      if (!newVatRates[month]) {
+        newVatRates[month] = 0;
+      }
+    });
+    
+    return {
+      ...forecast,
+      amounts: newAmounts,
+      vatRates: newVatRates
+    };
+  });
 };
 
 export const addVATCollected = (budget: Budget, description: string): Budget => {
@@ -271,13 +314,14 @@ export const removeExpense = (budget: Budget, id: string): Budget => {
 
 export const calculateVATSummary = (budget: Budget): Budget => {
   const { vatCollected, vatDeductible, period } = budget;
-  const { startMonth, months } = period;
+  const { startMonth, months: monthsCount } = period;
   
   const vatSummary: Record<number, VATSummary> = {};
+  const allMonths = getAvailableMonths(startMonth, monthsCount);
   
-  for (let i = 0; i < months; i++) {
-    const month = (startMonth + i - 1) % 12 + 1;
-    
+  let previousMonthCredit = budget.vatSummary[allMonths[0]]?.previousMonthCredit || 0;
+
+  allMonths.forEach((month) => {
     // Calculate total VAT collected for this month
     const totalVATCollected = vatCollected.reduce((sum, item) => {
       return sum + (item.amounts[month] || 0);
@@ -287,18 +331,6 @@ export const calculateVATSummary = (budget: Budget): Budget => {
     const totalVATDeductible = vatDeductible.reduce((sum, item) => {
       return sum + (item.amounts[month] || 0);
     }, 0);
-    
-    // Get previous month's credit, if any
-    let previousMonthCredit = 0;
-    if (i > 0) {
-      const prevMonth = (startMonth + i - 2) % 12 + 1;
-      previousMonthCredit = budget.vatSummary[prevMonth]?.isCredit 
-        ? -budget.vatSummary[prevMonth].toPay 
-        : 0;
-    } else {
-      // For the first month, use the initial VAT credit from the budget
-      previousMonthCredit = budget.vatSummary[month]?.previousMonthCredit || 0;
-    }
     
     // Calculate VAT to pay
     const toPay = totalVATCollected - totalVATDeductible - previousMonthCredit;
@@ -310,7 +342,10 @@ export const calculateVATSummary = (budget: Budget): Budget => {
       toPay,
       isCredit: toPay < 0
     };
-  }
+
+    // Update previousMonthCredit for next month
+    previousMonthCredit = toPay < 0 ? -toPay : 0;
+  });
   
   return {
     ...budget,

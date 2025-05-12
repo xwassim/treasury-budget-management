@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
-import { Budget } from './types';
+import { useState } from 'react';
 import { useBudget } from './context/BudgetContext';
 import BudgetForm from './components/BudgetForm';
 import BudgetList from './components/BudgetList';
 import BudgetDetail from './components/BudgetDetail';
-import logo from './assets/Budgetproo.png';
+import logo from './assets/logo.png';
 
 function App() {
   const { currentBudget, setCurrentBudget, getBudget } = useBudget();
@@ -32,7 +31,7 @@ function App() {
       <header className="bg-blue-800 shadow-md">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-white">Budget de Trésorerie Prévisionnel</h1>
-          <img src={logo} alt="Logo" className="h-[60px] w-[70px] float-right" />
+          <img src={logo} alt="Logo" className="h-[75px] w-[85px] " />
         </div>
       </header>
       
